@@ -24,7 +24,7 @@ public class UserQueueService {
                 .filter(i -> i)
                 .switchIfEmpty(Mono.error(ErrorCode.QUEUE_ALREADY_REGISTER_USER.build()))
                 .flatMap(i -> reactiveRedisTemplate.opsForZSet().rank(USER_QUEUE_WAIT_KEY.formatted(queue), userId.toString()))
-                .map(i -> i >= 0 ? i + 1: i);
+                .map(i -> i >= 0 ? i + 1 : i);
     }
 
     // 대기열 진입 가능 여부
@@ -39,5 +39,11 @@ public class UserQueueService {
         return reactiveRedisTemplate.opsForZSet().rank(USER_QUEUE_PROCEED_KEY.formatted(queue), userId.toString())
                 .defaultIfEmpty(- 1L)
                 .map(rank -> rank >= 0);
+    }
+
+    public Mono<Long> getRank(final String queue, final Long userId) {
+        return reactiveRedisTemplate.opsForZSet().rank(USER_QUEUE_WAIT_KEY.formatted(queue), userId.toString())
+                .defaultIfEmpty(-1L)
+                .map(rank -> rank >= 0 ? rank + 1 : rank);
     }
 }

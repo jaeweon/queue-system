@@ -2,6 +2,7 @@ package com.queuesystem.queuesystem.controller;
 
 import com.queuesystem.queuesystem.dto.AllowUserResponse;
 import com.queuesystem.queuesystem.dto.AllowedIUserResponse;
+import com.queuesystem.queuesystem.dto.RankNumberResponse;
 import com.queuesystem.queuesystem.dto.RegisterUserResponse;
 import com.queuesystem.queuesystem.service.UserQueueService;
 import lombok.RequiredArgsConstructor;
@@ -34,5 +35,12 @@ public class UserQueueController {
                                                     @RequestParam(name = "user_id") Long userId){
        return userQueueService.isAllowed(queue, userId)
                .map(AllowedIUserResponse::new);
+    }
+
+    @GetMapping("/rank")
+    public Mono<RankNumberResponse> getRankUser(@RequestParam(name = "queue", defaultValue = "default") String queue,
+                                                @RequestParam(name = "user_id") Long userId) {
+        return userQueueService.getRank(queue, userId)
+                .map(RankNumberResponse::new);
     }
 }
