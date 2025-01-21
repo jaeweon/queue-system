@@ -13,6 +13,9 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 import reactor.util.function.Tuples;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 
 
@@ -61,7 +64,7 @@ public class UserQueueService {
     public void scheduleAllowUser() {
 //        log.info("접속 허용 중...");
 
-        var maxAllowUserCount = 3L;
+        var maxAllowUserCount = 1L;
         reactiveRedisTemplate.scan(ScanOptions.scanOptions()
                         .match(USER_QUEUE_WAIT_FOR_SCAN)
                         .count(100)
