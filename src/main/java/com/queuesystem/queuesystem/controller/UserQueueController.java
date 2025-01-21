@@ -1,9 +1,6 @@
 package com.queuesystem.queuesystem.controller;
 
-import com.queuesystem.queuesystem.dto.AllowUserResponse;
-import com.queuesystem.queuesystem.dto.AllowedIUserResponse;
-import com.queuesystem.queuesystem.dto.RankNumberResponse;
-import com.queuesystem.queuesystem.dto.RegisterUserResponse;
+import com.queuesystem.queuesystem.dto.*;
 import com.queuesystem.queuesystem.service.UserQueueService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -37,10 +34,19 @@ public class UserQueueController {
                .map(AllowedIUserResponse::new);
     }
 
+    @GetMapping("/requeue")
+    public Mono<RequeueUser> requeueUser(@RequestParam(name = "queue", defaultValue = "default") String queue,
+                                         @RequestParam(name = "user_id") Long userId) {
+        return userQueueService.isAllowedWithRequeue(queue, userId)
+                .map(RequeueUser::new);
+    }
+
     @GetMapping("/rank")
     public Mono<RankNumberResponse> getRankUser(@RequestParam(name = "queue", defaultValue = "default") String queue,
                                                 @RequestParam(name = "user_id") Long userId) {
         return userQueueService.getRank(queue, userId)
                 .map(RankNumberResponse::new);
     }
+
+
 }
