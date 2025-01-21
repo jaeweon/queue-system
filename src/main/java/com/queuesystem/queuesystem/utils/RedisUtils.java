@@ -33,4 +33,5 @@ public class RedisUtils {
                         .rank(key, userId.toString())
                         .map(rank -> rank + 1));
     }
+
 }

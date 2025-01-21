@@ -54,6 +54,32 @@ public class UserQueueService {
                 .map(rank -> rank >= 0);
     }
 
+    // 새로운 로직: proceed에서 제거하고 waiting으로 이동
+    public Mono<Boolean> isAllowedWithRequeue(final String queue, final Long userId) {
+        return reactiveRedisTemplate.opsForZSet()
+                .rank(USER_QUEUE_PROCEED_KEY.formatted(queue), userId.toString())
+                .defaultIfEmpty(-1L)
+                .flatMap(rank -> {
+                    if (rank >= 0) {
+                        // 유저를 proceed에서 제거하고 waiting으로 재등록
+                        return requeueUser(queue, userId).thenReturn(false);
+                    }
+                    return Mono.just(false);
+                });
+    }
+
+
+    // 사용자 대기열 재등록
+    private Mono<Void> requeueUser(String queue, Long userId) {
+        String proceedKey = USER_QUEUE_PROCEED_KEY.formatted(queue);
+        String waitKey = USER_QUEUE_WAIT_KEY.formatted(queue);
+
+        return reactiveRedisTemplate.opsForZSet().remove(proceedKey, userId.toString())
+                .then(reactiveRedisTemplate.opsForZSet()
+                        .add(waitKey, userId.toString(), Instant.now().getEpochSecond()))
+                .then();
+    }
+
     public Mono<Long> getRank(final String queue, final Long userId) {
         return reactiveRedisTemplate.opsForZSet().rank(USER_QUEUE_WAIT_KEY.formatted(queue), userId.toString())
                 .defaultIfEmpty(-1L)
