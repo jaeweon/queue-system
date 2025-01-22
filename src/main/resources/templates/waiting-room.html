@@ -35,23 +35,20 @@
     <br/>
 </div>
 <script>
+
+    const queue = '[[${queue}]]';
+    const userId = '[[${userId}]]';
     function fetchWaitingRank() {
-        const queue = '[[${queue}]]';
-        const userId = '[[${userId}]]';
         const queryParam = new URLSearchParams({queue: queue, user_id: userId});
         fetch('/api/v1/queue/rank?' + queryParam)
             .then(response => response.json())
             .then(data => {
                 if(data.rank < 0) {
-                    fetch('/api/v1/queue/touch?' + queryParam)
-                        .then(response => {
                             document.querySelector('#number').innerHTML = 0;
                             document.querySelector('#updated').innerHTML = new Date();
 
                             const newUrl = window.location.origin + window.location.pathname + window.location.search;
                             window.location.href = newUrl;
-                        })
-                        .catch(error => console.error(error));
                     return;
                 }
                 document.querySelector('#number').innerHTML = data.rank;
@@ -61,6 +58,36 @@
     }
 
     setInterval(fetchWaitingRank, 3000);
+
+    // Heartbeat 주기적으로 전송
+    function sendHeartbeat() {
+        fetch('/api/v1/queue/heartbeat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ queue, userId })
+        }).catch(console.error);
+    }
+
+    // Leave API 호출
+    function leaveQueue() {
+        fetch('/api/v1/queue/leave', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ queue, userId })
+        }).catch(console.error);
+    }
+
+    // beforeunload 이벤트로 정상 종료 처리
+    window.addEventListener('beforeunload', (event) => {
+        leaveQueue();
+        event.preventDefault(); // 브라우저 종료 확인 (필요 시)
+    });
+
+    // Heartbeat를 5초마다 전송
+    setInterval(sendHeartbeat, 5000);
+
+
+
 </script>
 </body>
 </html>

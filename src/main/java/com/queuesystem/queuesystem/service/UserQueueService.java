@@ -5,6 +5,7 @@ import com.queuesystem.queuesystem.utils.RedisUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Range;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ScanOptions;
@@ -16,6 +17,7 @@ import reactor.util.function.Tuples;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Duration;
 import java.time.Instant;
 
 
@@ -40,7 +42,6 @@ public class UserQueueService {
                         : redisUtils.addUserToQueue(key, userId, unixTimestamp));
     }
 
-
     public Mono<Long> allowUser(final String queue, final Long count) {
         return reactiveRedisTemplate.opsForZSet().popMin(USER_QUEUE_WAIT_KEY.formatted(queue), count)
                 .flatMap(member -> reactiveRedisTemplate.opsForZSet().add(USER_QUEUE_PROCEED_KEY.formatted(queue), member.getValue(), Instant.now().getEpochSecond()))
@@ -54,41 +55,14 @@ public class UserQueueService {
                 .map(rank -> rank >= 0);
     }
 
-    // 새로운 로직: proceed에서 제거하고 waiting으로 이동
-    public Mono<Boolean> isAllowedWithRequeue(final String queue, final Long userId) {
-        return reactiveRedisTemplate.opsForZSet()
-                .rank(USER_QUEUE_PROCEED_KEY.formatted(queue), userId.toString())
-                .defaultIfEmpty(-1L)
-                .flatMap(rank -> {
-                    if (rank >= 0) {
-                        // 유저를 proceed에서 제거하고 waiting으로 재등록
-                        return requeueUser(queue, userId).thenReturn(false);
-                    }
-                    return Mono.just(false);
-                });
-    }
-
-
-    // 사용자 대기열 재등록
-    private Mono<Void> requeueUser(String queue, Long userId) {
-        String proceedKey = USER_QUEUE_PROCEED_KEY.formatted(queue);
-        String waitKey = USER_QUEUE_WAIT_KEY.formatted(queue);
-
-        return reactiveRedisTemplate.opsForZSet().remove(proceedKey, userId.toString())
-                .then(reactiveRedisTemplate.opsForZSet()
-                        .add(waitKey, userId.toString(), Instant.now().getEpochSecond()))
-                .then();
-    }
-
     public Mono<Long> getRank(final String queue, final Long userId) {
         return reactiveRedisTemplate.opsForZSet().rank(USER_QUEUE_WAIT_KEY.formatted(queue), userId.toString())
                 .defaultIfEmpty(-1L)
                 .map(rank -> rank >= 0 ? rank + 1 : rank);
     }
 
-    @Scheduled(initialDelay = 5000, fixedDelay = 10000)
+    @Scheduled(initialDelay = 5000, fixedDelay = 100000)
     public void scheduleAllowUser() {
-//        log.info("접속 허용 중...");
 
         var maxAllowUserCount = 1L;
         reactiveRedisTemplate.scan(ScanOptions.scanOptions()
@@ -99,5 +73,21 @@ public class UserQueueService {
                 .flatMap(queue -> allowUser(queue, maxAllowUserCount).map(allowed -> Tuples.of(queue, allowed)))
                 .doOnNext(tuple -> log.info("Tried %d and allowed %d members of %s queue".formatted(maxAllowUserCount, tuple.getT2(), tuple.getT1())))
                 .subscribe();
+    }
+
+    // 하트비트로 TTL 갱신
+    public Mono<Boolean> updateHeartbeat(String queue, Long userId) {
+        String waitKey = USER_QUEUE_WAIT_KEY.formatted(queue);
+
+        // TTL 갱신 (점수는 변경하지 않음)
+        return reactiveRedisTemplate.expire(waitKey, Duration.ofSeconds(10));
+    }
+
+    // 대기열에서 사용자 제거
+    public Mono<Void> removeUserFromQueue(String queue, Long userId) {
+        String waitKey = USER_QUEUE_WAIT_KEY.formatted(queue);
+        return reactiveRedisTemplate.opsForZSet()
+                .remove(waitKey, userId.toString())
+                .then();
     }
 }

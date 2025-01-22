@@ -7,7 +7,8 @@ import org.springframework.http.HttpStatus;
 @Getter
 public enum ErrorCode {
     QUEUE_ALREADY_REGISTER_USER(HttpStatus.CONFLICT, "UQ-0001", "Already register user."),
-    QUEUE_REGISTRATION_FAILED(HttpStatus.CONFLICT, "UQ-0002", "Queue registration failed.");
+    QUEUE_REGISTRATION_FAILED(HttpStatus.CONFLICT, "UQ-0002", "Queue registration failed."),
+    USER_NOT_FOUND_IN_QUEUE(HttpStatus.CONFLICT, "UQ-0002", "User not found in queue.");
 
     private final HttpStatus httpStatus;
     private final String code;
