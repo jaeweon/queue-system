@@ -18,7 +18,11 @@ public class WaitingController {
     @GetMapping("/waiting-room")
     Mono<Rendering> waitingRoomPage(@RequestParam(name = "queue", defaultValue = "default") String queue,
                                     @RequestParam(name = "user_id") Long userId,
-                                    @RequestParam(name = "redirect_url") String redirectUrl) {
+                                    @RequestParam(name = "redirect_url") String redirectUrl,
+                                    ServerWebExchange exchange) {
+        var key = "user-queue-%s-token".formatted(queue);
+        var cookieValue = exchange.getRequest().getCookies().getFirst(key);
+        var token = (cookieValue == null) ? "" : cookieValue.getValue();
 
         return userQueueService.isAllowed(queue, userId)
                 .filter(allowed -> allowed)
