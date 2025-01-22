@@ -61,7 +61,7 @@ public class UserQueueService {
                 .map(rank -> rank >= 0 ? rank + 1 : rank);
     }
 
-    @Scheduled(initialDelay = 5000, fixedDelay = 100000)
+    @Scheduled(initialDelay = 5000, fixedDelay = 10000)
     public void scheduleAllowUser() {
 
         var maxAllowUserCount = 1L;
