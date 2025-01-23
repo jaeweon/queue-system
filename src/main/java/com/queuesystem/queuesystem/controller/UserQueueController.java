@@ -19,7 +19,7 @@ public class UserQueueController {
 
     @PostMapping("")
     public Mono<RegisterUserResponse> registerUser(@RequestParam(name = "queue", defaultValue = "default") String queue,
-                                                   @RequestParam(name = "user_id") Long userId) {
+                                                   @RequestParam(name = "user_id") String userId) {
         return userQueueService.registerWaitQueue(queue, userId)
                 .map(RegisterUserResponse::new);
     }
@@ -33,14 +33,14 @@ public class UserQueueController {
 
     @GetMapping("/allowed")
     public Mono<AllowedUserResponse> isAllowedUser(@RequestParam(name = "queue", defaultValue = "default") String queue,
-                                                   @RequestParam(name = "user_id") Long userId) {
+                                                   @RequestParam(name = "user_id") String userId) {
         return userQueueService.isAllowed(queue, userId)
                 .map(AllowedUserResponse::new);
     }
 
     @GetMapping("/rank")
     public Mono<RankNumberResponse> getRankUser(@RequestParam(name = "queue", defaultValue = "default") String queue,
-                                                @RequestParam(name = "user_id") Long userId) {
+                                                @RequestParam(name = "user_id") String userId) {
         return userQueueService.getRank(queue, userId)
                 .map(RankNumberResponse::new);
     }

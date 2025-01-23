@@ -16,21 +16,21 @@ public class RedisUtils {
     }
 
     // 사용자 등록 여부 확인
-    public Mono<Boolean> isUserAlreadyRegistered(String key, Long userId) {
+    public Mono<Boolean> isUserAlreadyRegistered(String key, String userId) {
         return reactiveRedisTemplate.opsForZSet()
-                .rank(key, userId.toString())
+                .rank(key, userId)
                 .map(Objects::nonNull)
                 .defaultIfEmpty(false);
     }
 
     // 대기열에 사용자 추가
-    public Mono<Long> addUserToQueue(String key, Long userId, double score) {
+    public Mono<Long> addUserToQueue(String key, String userId, double score) {
         return reactiveRedisTemplate.opsForZSet()
-                .add(key, userId.toString(), score)
+                .add(key, userId, score)
                 .filter(Boolean::booleanValue)
                 .switchIfEmpty(Mono.error(ErrorCode.QUEUE_REGISTRATION_FAILED.build()))
                 .flatMap(success -> reactiveRedisTemplate.opsForZSet()
-                        .rank(key, userId.toString())
+                        .rank(key, userId)
                         .map(rank -> rank + 1));
     }
 
