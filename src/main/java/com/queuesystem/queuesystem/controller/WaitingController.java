@@ -17,7 +17,7 @@ public class WaitingController {
 
     @GetMapping("/waiting-room")
     Mono<Rendering> waitingRoomPage(@RequestParam(name = "queue", defaultValue = "default") String queue,
-                                    @RequestParam(name = "user_id") Long userId,
+                                    @RequestParam(name = "user_id") String userId,
                                     @RequestParam(name = "redirect_url") String redirectUrl,
                                     ServerWebExchange exchange) {
 
