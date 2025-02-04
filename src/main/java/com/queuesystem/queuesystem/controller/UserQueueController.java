@@ -3,15 +3,13 @@ package com.queuesystem.queuesystem.controller;
 import com.queuesystem.queuesystem.dto.*;
 import com.queuesystem.queuesystem.service.UserQueueService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 
-import java.time.Duration;
-
 @RestController
 @RequiredArgsConstructor
+@CrossOrigin(origins = "*")
 @RequestMapping("/api/v1/queue")
 public class UserQueueController {
 
@@ -54,5 +52,10 @@ public class UserQueueController {
     public Mono<ResponseEntity<Void>> heartbeat(@RequestBody HeartbeatRequest request) {
         return userQueueService.updateHeartbeat(request.getQueue(), request.getUserId())
                 .thenReturn(ResponseEntity.ok().build());
+    }
+
+    @PostMapping("/flushAll")
+    public Mono<ResponseEntity<String>> flushAll() {
+        return userQueueService.removeAllUserFromQueue();
     }
 }

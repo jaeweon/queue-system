@@ -3,21 +3,17 @@ package com.queuesystem.queuesystem.service;
 import com.queuesystem.queuesystem.exception.ErrorCode;
 import com.queuesystem.queuesystem.utils.RedisUtils;
 import lombok.RequiredArgsConstructor;
-import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Range;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ScanOptions;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.util.function.Tuples;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
+import java.lang.management.ManagementFactory;
 import java.time.Duration;
 import java.time.Instant;
 
@@ -42,24 +38,6 @@ public class UserQueueService {
                         ? Mono.error(ErrorCode.QUEUE_ALREADY_REGISTER_USER.build())
                         : redisUtils.addUserToQueue(key, userId, unixTimestamp));
     }
-
-//    public Mono<Long> registerWaitQueue(final String queue, final Long userId) {
-//        String baseKey = USER_QUEUE_WAIT_KEY.formatted(queue);
-//        double unixTimestamp = Instant.now().getEpochSecond();
-//
-//        // 테스트: 10,000개의 키를 생성하고 각 키에 값을 삽입
-//        Flux<String> testKeys = Flux.range(1, 10000)
-//                .map(i -> baseKey + ":test-key-" + i);
-//
-//        return testKeys
-//                .flatMap(testKey -> redisUtils.addUserToQueue(testKey, userId, unixTimestamp))
-//                .then(Mono.defer(() ->
-//                        redisUtils.isUserAlreadyRegistered(baseKey, userId)
-//                                .flatMap(alreadyRegistered -> alreadyRegistered
-//                                        ? Mono.error(ErrorCode.QUEUE_ALREADY_REGISTER_USER.build())
-//                                        : redisUtils.addUserToQueue(baseKey, userId, unixTimestamp))
-//                ));
-//    }
 
     public Mono<Long> allowUser(final String queue, final Long count) {
         return reactiveRedisTemplate.opsForZSet()
@@ -90,25 +68,49 @@ public class UserQueueService {
                 .map(rank -> rank >= 0 ? rank + 1 : rank);
     }
 
-    @Scheduled(initialDelay = 5000, fixedDelay = 10000)
+    @Scheduled(initialDelay = 5000, fixedDelay = 3000)
     public void scheduleAllowUser() {
+        // 부하율 계산
+        double loadRate = calculateLoadRate();
 
-        var maxAllowUserCount = 1L;
+        // 동적으로 처리량 조정
+        long maxAllowUserCount = calculateMaxAllowUserCount(loadRate);
+
         reactiveRedisTemplate.scan(ScanOptions.scanOptions()
                         .match(USER_QUEUE_WAIT_FOR_SCAN)
                         .count(100)
                         .build())
                 .map(key -> key.split(":")[2])
                 .flatMap(queue -> allowUser(queue, maxAllowUserCount).map(allowed -> Tuples.of(queue, allowed)))
-//                .doOnNext(tuple -> log.info("Tried %d and allowed %d members of %s queue".formatted(maxAllowUserCount, tuple.getT2(), tuple.getT1())))
                 .subscribe();
     }
 
-    // 하트비트로 TTL 갱신
+    private double calculateLoadRate() {
+        // 서버의 CPU 및 메모리 사용량 측정
+        double cpuLoad = ManagementFactory.getOperatingSystemMXBean().getSystemLoadAverage(); // CPU 부하율
+        double memoryUsage = getMemoryUsage(); // 메모리 사용률 (사용량 / 최대 메모리)
+
+        // 부하율 계산 (CPU와 메모리 사용률 평균)
+        return Math.min(1.0, (cpuLoad + memoryUsage) / 2);
+    }
+
+    private double getMemoryUsage() {
+        Runtime runtime = Runtime.getRuntime();
+        double usedMemory = runtime.totalMemory() - runtime.freeMemory();
+        return usedMemory / runtime.maxMemory();
+    }
+
+    private Long calculateMaxAllowUserCount(double loadRate) {
+        // 최대 처리량 설정 (예: 10명)
+        long maxUserCapacity = 10;
+
+        // 선형 모델로 처리량 조정
+        return Math.max(1, (long) (maxUserCapacity * (1 - loadRate)));
+    }
+
     public Mono<Boolean> updateHeartbeat(String queue, String userId) {
         String waitKey = USER_QUEUE_WAIT_KEY.formatted(queue);
 
-        // TTL 갱신 (점수는 변경하지 않음)
         return reactiveRedisTemplate.expire(waitKey, Duration.ofSeconds(10));
     }
 
@@ -118,5 +120,12 @@ public class UserQueueService {
         return reactiveRedisTemplate.opsForZSet()
                 .remove(waitKey, userId)
                 .then();
+    }
+
+    public Mono<ResponseEntity<String>> removeAllUserFromQueue() {
+        return reactiveRedisTemplate.execute(connection -> connection.serverCommands().flushAll())
+                .then(Mono.just(ResponseEntity.ok("Redis 데이터가 초기화되었습니다.")))
+                .onErrorResume(e -> Mono.just(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .body("초기화 실패: " + e.getMessage())));
     }
 }

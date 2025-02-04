@@ -3,6 +3,7 @@ package com.queuesystem.queuesystem.controller;
 import com.queuesystem.queuesystem.service.UserQueueService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.reactive.result.view.Rendering;
@@ -11,6 +12,7 @@ import reactor.core.publisher.Mono;
 
 @Controller
 @RequiredArgsConstructor
+@CrossOrigin(origins = "*")
 public class WaitingController {
 
     private final UserQueueService userQueueService;
