@@ -1,26 +1,18 @@
 server:
-  port: 9010
+  port: 80
 
 spring:
   data:
     redis:
+      host: redis
+      port: 6379
       lettuce:
         pool:
-          max-active: 1000 # 최대 연결 수
-          max-idle: 100    # 유휴 연결 수
+          max-active: 2000 # 최대 연결 수
+          max-idle: 1000    # 유휴 연결 수
           min-idle: 10     # 최소 유휴 연결 수
           time-between-eviction-runs: 60s
   task:
     scheduling:
       pool:
-        size: 20 # 스케줄러의 최대 스레드 수
-
----
-spring:
-  config:
-    activate:
-      on-profile: test
-  data:
-    redis:
-      host: 127.0.0.1
-      port: 63790
+        size: 300 # 스케줄러의 최대 스레드 수
